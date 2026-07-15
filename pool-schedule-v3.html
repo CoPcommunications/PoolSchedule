@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pool Schedule</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0C3A47;
+    --bg:#F5FAFB;
+    --card:#FFFFFF;
+    --line:#DCE9EC;
+    --lap:#1B7A94;
+    --open:#1C9E8A;
+    --rec:#E8954B;
+    --lessons:#D9A62E;
+    --signup:#6B2D5F;
+    --practice:#3B4C7A;
+    --special:#D6567A;
+    --pending:#C98A2E;
+    --closed:#B9C6C9;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    font-family:'Inter',system-ui,sans-serif;
+    color:var(--ink);
+    max-width:750px;
+    font-size:15px;
+    line-height:1.4;
+  }
+  .wrap{padding:0 0 18px 0;}
+
+  header{
+    background:linear-gradient(135deg,#0C3A47,#164F60);
+    color:#fff;
+    padding:16px 16px 22px 16px;
+    position:relative;
+  }
+  header h1{
+    font-family:'Barlow Semi Condensed',sans-serif;
+    font-weight:700;
+    font-size:27px;
+    letter-spacing:.02em;
+    margin:0 0 3px 0;
+    text-transform:uppercase;
+  }
+  header p.sub{margin:0;font-size:13.5px;opacity:.88;}
+  .wave{display:block;width:100%;height:14px;margin-top:-1px;}
+
+  .legend-heading{
+    font-family:'Barlow Semi Condensed',sans-serif;font-weight:700;font-size:13px;
+    text-transform:uppercase;letter-spacing:.02em;color:#5C7A83;
+    padding:16px 16px 0 16px;
+  }
+  .legend{ display:flex;flex-wrap:wrap;gap:7px; padding:8px 16px 6px 16px; }
+  .chip{
+    display:flex;align-items:center;gap:6px;
+    font-size:12.5px;font-weight:600;
+    background:var(--card); border:1px solid var(--line); border-radius:999px;
+    padding:4px 11px 4px 7px;
+  }
+  .dot{width:11px;height:11px;border-radius:3px;flex:0 0 auto;}
+  .dot.restricted{ background-image:repeating-linear-gradient(45deg, rgba(255,255,255,.55) 0 2.5px, transparent 2.5px 5px); }
+  .legend-note{
+    font-size:11.5px;color:#5C7A83;padding:0 16px 4px 16px;
+    display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  }
+  .legend-note .swatch{
+    width:20px;height:12px;border-radius:3px;background:var(--lap);
+    background-image:repeating-linear-gradient(45deg, rgba(255,255,255,.55) 0 2.5px, transparent 2.5px 5px);
+    display:inline-block;
+  }
+  .legend-note .swatch2{ width:20px;height:12px;border-radius:3px;background:var(--card); border:1.5px dashed var(--ink); display:inline-block; }
+
+  .weeknav{ display:flex;align-items:center;justify-content:space-between; padding:12px 16px 0 16px; }
+  .weeknav .range{ font-family:'Barlow Semi Condensed',sans-serif;font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.01em; }
+  .weeknav .season{ font-size:11px;font-weight:600;color:#5C7A83;text-transform:none;letter-spacing:0;display:block;margin-top:1px; }
+  .weeknav button{
+    font-family:'Inter',sans-serif;font-weight:600;font-size:13px;
+    background:var(--card);border:1px solid var(--line);color:var(--ink);
+    border-radius:6px;padding:6px 10px;cursor:pointer;
+  }
+  .weeknav button:hover{background:#EAF3F5;}
+
+  .tabs-caption{
+    font-family:'Barlow Semi Condensed',sans-serif;font-weight:700;font-size:15px;
+    text-transform:uppercase;letter-spacing:.02em;color:var(--ink);
+    padding:14px 16px 0 16px;margin:0;
+  }
+  .tabs{ display:flex;gap:4px; padding:8px 16px 0 16px; overflow-x:auto; }
+  .tab{
+    flex:1 1 0; text-align:center; padding:8px 2px 7px 2px;
+    border-radius:8px;
+    background:var(--card); border:1.5px solid var(--line);
+    cursor:pointer; color:var(--ink); opacity:.55; position:relative;
+  }
+  .tab.active{opacity:1;border-color:var(--lap);border-width:2px;background:#EAF3F5;}
+  .tab:hover{opacity:.85;background:#EAF3F5;}
+  .tab.active:hover{opacity:1;}
+  .tab.today .daynum{text-decoration:underline;text-decoration-color:var(--rec);text-decoration-thickness:2px;}
+  .tab .dayabbr{ display:block;font-family:'Barlow Semi Condensed',sans-serif;font-weight:700; font-size:14px;letter-spacing:.03em;text-transform:uppercase; }
+  .tab .daynum{display:block;font-size:16.5px;font-weight:700;margin-top:1px;}
+  .tab .flag{ position:absolute;top:3px;right:4px; width:7px;height:7px;border-radius:50%; background:var(--special); }
+  .tab .flag.pending{ background:var(--pending); }
+
+  .day-panel{ background:var(--card); border:1px solid var(--line); border-radius:8px; margin:6px 16px 0 16px; padding:16px 13px 8px 13px; }
+
+  .section{margin-bottom:18px;}
+  .section:last-child{margin-bottom:2px;}
+  .section-title{
+    font-family:'Barlow Semi Condensed',sans-serif; font-weight:700; font-size:18.5px;
+    text-transform:uppercase; letter-spacing:.02em; color:var(--ink); margin-bottom:2px;
+  }
+  .section-meta{font-size:12.5px;color:#5C7A83;margin-bottom:9px;}
+
+  .track{display:flex;align-items:stretch;margin-bottom:5px;height:42px;}
+  .track-label{
+    flex:0 0 68px; font-size:12px;font-weight:700;color:#5C7A83;
+    display:flex;align-items:center; text-transform:uppercase; line-height:1.15;
+  }
+  .track-body{
+    position:relative;flex:1 1 auto;
+    background: repeating-linear-gradient(90deg, transparent, transparent calc(100%/15 - 1px), var(--line) calc(100%/15 - 1px), var(--line) calc(100%/15));
+    border-radius:4px; overflow:hidden;
+  }
+  .seg{
+    position:absolute;top:1px;bottom:1px; border-radius:3px;
+    display:flex;align-items:center;justify-content:flex-start;
+    font-size:12px;font-weight:700;color:#fff; padding:0 7px;
+    overflow:hidden;white-space:nowrap; text-shadow:0 1px 1px rgba(0,0,0,.18);
+  }
+  .seg.restricted{ background-image:repeating-linear-gradient(45deg, rgba(255,255,255,0) 0 6px, rgba(255,255,255,.4) 6px 11px); }
+  .seg.closed{
+    background:repeating-linear-gradient(45deg, var(--closed), var(--closed) 5px, #DDE6E8 5px, #DDE6E8 10px);
+    color:#5C7A83; text-shadow:none;
+  }
+  .seg.dev{ outline:2px dashed rgba(255,255,255,.95); outline-offset:-3px; }
+
+  .timescale{position:relative;margin:2px 0 6px 68px;height:14px;}
+  .timescale span{position:absolute;transform:translateX(-50%);font-size:10px;color:#8AA2A8;font-weight:500;}
+
+  .note{font-size:12.5px;color:#5C7A83;margin:8px 0 0 0;line-height:1.5;}
+
+  .banner{ padding:9px 11px;border-radius:6px;margin-bottom:14px;font-weight:600;font-size:13px;line-height:1.5; }
+  .banner.confirmed{ background:#FDECF1;border:1px solid var(--special);color:#9C2F52; }
+  .banner.pending{ background:#FBF1E1;border:1px solid var(--pending);color:#8A5D14; }
+
+  .exceptions{margin:18px 16px 0 16px;}
+  .exceptions-header{display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:3px;}
+  .exceptions h2{ font-family:'Barlow Semi Condensed',sans-serif; font-size:16.5px;text-transform:uppercase;letter-spacing:.02em; margin:0; }
+  .exceptions-chevron{font-size:12px;color:var(--ink);font-weight:700;transition:transform .15s ease;}
+  .exceptions-chevron.open{transform:rotate(90deg);}
+  .exceptions-body{display:none;padding-top:9px;}
+  .exceptions-body.open{display:block;}
+  .exception-card{
+    background:var(--card); border:1px solid var(--line); border-radius:6px;
+    padding:10px 12px; margin-bottom:9px; border-left:4px solid var(--special);
+  }
+  .exception-card.pending{ border-left-color:var(--pending); }
+  .exception-card .date{font-size:12px;font-weight:700;color:var(--special);text-transform:uppercase;}
+  .exception-card.pending .date{color:var(--pending);}
+  .exception-card .label{font-size:14.5px;font-weight:700;margin-top:2px;}
+  .exception-card .desc{font-size:12.5px;color:#5C7A83;margin-top:3px;}
+  .exception-card .jump{
+    margin-top:8px;font-size:12.5px;font-weight:700;color:var(--lap);
+    background:none;border:none;padding:0;cursor:pointer;text-decoration:underline;
+  }
+
+  .practice-summary{margin:18px 16px 0 16px;}
+  .practice-summary h2{ font-family:'Barlow Semi Condensed',sans-serif; font-size:16.5px;text-transform:uppercase;letter-spacing:.02em; margin:0 0 9px 0; }
+  .practice-summary ul{ margin:0;padding-left:18px; }
+  .practice-summary li{ font-size:12.5px;color:#3D5C66;margin-bottom:7px;line-height:1.5; }
+  .practice-summary li b{color:var(--ink);}
+
+  footer{padding:16px 16px 4px 16px;font-size:11.5px;color:#8AA2A8;text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1 id="poolName">Piedmont Community Pool</h1>
+    <p class="sub" id="poolSub">Loading…</p>
+    <svg class="wave" viewBox="0 0 600 14" preserveAspectRatio="none">
+      <path d="M0,8 C50,14 100,2 150,8 C200,14 250,2 300,8 C350,14 400,2 450,8 C500,14 550,2 600,8 L600,14 L0,14 Z" fill="#F5FAFB"/>
+    </svg>
+  </header>
+
+  <div class="weeknav">
+    <button id="prevWeek">‹ Prev week</button>
+    <div><div class="range" id="weekRange"></div><span class="season" id="seasonLabel"></span></div>
+    <button id="nextWeek">Next week ›</button>
+  </div>
+
+  <div class="tabs-caption">Select a Day</div>
+  <div class="tabs" id="tabs"></div>
+  <div class="day-panel" id="dayPanel"></div>
+
+  <div class="exceptions" id="exceptionsWrap" style="display:none;">
+    <div class="exceptions-header" id="exceptionsHeader">
+      <h2>Holidays &amp; Special Events</h2>
+      <span class="exceptions-chevron" id="exceptionsChevron">▸</span>
+    </div>
+    <div id="exceptionsList" class="exceptions-body"></div>
+  </div>
+
+  <div class="legend-heading">Legend</div>
+  <div class="legend" id="legend"></div>
+  <div class="legend-note">
+    <span class="swatch"></span> = requires signup / restricted to a specific group
+    &nbsp;&nbsp;
+    <span class="swatch2"></span> = different from the usual weekly pattern
+  </div>
+
+  <div class="practice-summary">
+    <h2>Water Polo &amp; Swim Team Practice</h2>
+    <ul>
+      <li><b>Water polo, regular season (Aug 10 – Oct 31):</b> closes the competition pool to the public most evenings — Mon 5–9pm, Tue 6–9pm, Wed 6–8am &amp; 6–8pm, Thu 6–9pm, Fri 6–8pm, Sat 9–11am. (Exact days vary — see the striped/outlined blocks on each date, exceptions apply around holidays and meets.)</li>
+      <li><b>Water polo, preseason:</b> Jul 20–30 and Aug 3–6, midday sessions take over the competition pool for 2–3 hours.</li>
+      <li><b>Water polo, early morning (6 lanes, doesn't close the pool):</b> Tue &amp; Thu 6:30–7:30am during the season.</li>
+      <li><b>Piedmont swim team practice (5 lanes, doesn't close the pool):</b> Tue–Fri 4–6pm, skipped automatically on days water polo already has the full pool.</li>
+      <li><b>Home water polo meets:</b> close the competition pool to lap/open/rec 2–8pm on 6 dates this fall — flagged on the calendar above. Spectators welcome via the Magnolia Gate.</li>
+    </ul>
+  </div>
+
+  <footer>Fall/Summer 2026 schedule, entered from facility-provided hours. Verify holiday &amp; special-event hours once confirmed.</footer>
+</div>
+
+<script>
+/* ============================================================
+   CONFIG
+   ============================================================
+   ACTIVITY_TYPES — vocabulary + whether it's "restricted" (gets
+   the diagonal stripe) vs open-to-anyone.
+
+   BASELINE — the normal week, split by SEASON ('summer' / 'fall')
+   because this facility's hours genuinely differ by season.
+   Each day is a set of pool sections, each section a list of
+   stacked TRACKS (rows), each track a list of segments
+   { start, end, type, label } in 24-hour "H:MM" time.
+
+   RECURRING_RULES — for things that happen on a repeating
+   day-of-week pattern across a date range, with specific dates
+   excluded (holidays, meets, byes) — this is what water polo and
+   swim team practice actually are, rather than one-off exceptions.
+     - mode:"full"    → takes over the ENTIRE pool for that window;
+                        automatically trims whatever public swim
+                        would otherwise show then, and visually
+                        flags as a deviation.
+     - mode:"overlay" → shares the pool (a lane subset); just adds
+                        a row, and is automatically hidden if a
+                        "full" rule is active at the same time on
+                        the same date (so "except when water polo
+                        has the pool" doesn't need to be typed out).
+     - dates: [...] can be used instead of daysOfWeek+range for a
+       rule that only fires on specific calendar dates (used here
+       for home-meet pool closures).
+     - excludeDates: [...] skips specific dates that would
+       otherwise match the recurring pattern.
+
+   EXCEPTIONS — single calendar dates worth flagging that AREN'T
+   yet fully specified (holidays, special events with hours still
+   TBD). pending:true shows an amber flag instead of a red one and
+   doesn't change the schedule shown. Once real hours are known,
+   add an "overrides" object (shaped like one day of BASELINE) and
+   drop pending — it'll render like a normal confirmed deviation.
+   ============================================================ */
+
+const ACTIVITY_TYPES = {
+  lap:        { label:"Lap swim",              color:"var(--lap)",       restricted:false },
+  open:       { label:"Open swim",              color:"var(--open)",     restricted:false },
+  rec:        { label:"Rec / tubes & diving",   color:"var(--rec)",      restricted:false },
+  lessons:    { label:"Lessons / classes",      color:"var(--lessons)",  restricted:true  },
+  reserved:   { label:"Reserved Swim",              color:"var(--signup)",   restricted:true  },
+  practice:   { label:"Team practice",          color:"var(--practice)",restricted:true  },
+  special:    { label:"Meet / special event",   color:"var(--special)",  restricted:true  },
+  closed:     { label:"Closed",                 color:"var(--closed)",  restricted:false },
+};
+
+const HOURS = { start:6, end:21 }; // 6am–9pm display window
+const DAY_ORDER = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]; // matches Date.getDay()
+
+/* ---- shared day patterns (same both seasons unless noted) ---- */
+const DAY_DATA = {
+  Mon: {
+    competition: {
+      LAP:[{start:"6:00",end:"13:00",type:"lap",label:"8 lanes"},{start:"14:00",end:"16:30",type:"lap",label:"4 lanes"}],
+      REC:[{start:"14:00",end:"16:30",type:"rec",label:"Rec · 8 lanes"}],
+      OPEN:[{start:"6:00",end:"13:00",type:"open",label:"Open swim"}],
+    },
+    activityLap: {
+      LAP:[{start:"6:00",end:"9:30",type:"lap",label:"warm lap"}],
+      OPEN:[{start:"9:30",end:"12:00",type:"open",label:"Open swim"},{start:"14:00",end:"16:00",type:"open",label:"Open swim"}],
+      RESRV:[{start:"16:00",end:"19:00",type:"reserved",label:"reserved"}],
+      CLASS:[{start:"12:00",end:"13:00",type:"lessons",label:"adult HIIT"},{start:"16:00",end:"19:00",type:"lessons",label:"swim lessons"}],
+    },
+    activityZero: {
+      OPEN:[{start:"6:00",end:"13:00",type:"open",label:"Open swim"},{start:"14:00",end:"16:00",type:"open",label:"Open swim"}],
+      RESRV:[{start:"16:00",end:"19:00",type:"reserved",label:"reserved"}],
+      CLASS:[{start:"16:00",end:"19:00",type:"lessons",label:"swim lessons"}],
+    },
+  },
+  Tue: {
+    competition: {
+      LAP:[{start:"6:00",end:"7:30",type:"lap",label:"6 lanes"},{start:"7:30",end:"13:00",type:"lap",label:"8 lanes"},{start:"14:00",end:"17:30",type:"lap",label:"4 lanes"}],
+      REC:[{start:"14:00",end:"17:40",type:"rec",label:"Rec · 8 lanes"}],
+      OPEN:[{start:"8:00",end:"13:00",type:"open",label:"Open swim"}],
+    },
+    activityLap: {
+      LAP:[{start:"6:00",end:"9:30",type:"lap",label:"warm lap"}],
+      OPEN:[{start:"11:00",end:"13:00",type:"open",label:"Open swim"},{start:"14:00",end:"16:00",type:"open",label:"Open swim"}],
+      RESRV:[{start:"16:00",end:"19:00",type:"reserved",label:"reserved"}],
+      CLASS:[{start:"10:00",end:"11:00",type:"lessons",label:"water aerobics"},{start:"16:00",end:"19:00",type:"lessons",label:"swim lessons"}],
+    },
+    activityZero: {
+      OPEN:[{start:"6:00",end:"13:00",type:"open",label:"Open swim"},{start:"14:00",end:"16:00",type:"open",label:"Open swim"}],
+      RESRV:[{start:"16:00",end:"19:00",type:"reserved",label:"reserved"}],
+      CLASS:[{start:"16:00",end:"19:00",type:"lessons",label:"swim lessons"}],
+    },
+  },
+  Wed: {
+    competition: {
+      LAP:[{start:"8:30",end:"13:00",type:"lap",label:"8 lanes"},{start:"14:00",end:"17:30",type:"lap",label:"4 lanes"}],
+      REC:[{start:"14:00",end:"17:30",type:"rec",label:"Rec · 8 lanes"}],
+      OPEN:[{start:"8:30",end:"13:00",type:"open",label:"Open swim"}],
+    },
+    activityLap: {
+      LAP:[{start:"6:00",end:"9:30",type:"lap",label:"warm lap"}],
+      OPEN:[{start:"9:30",end:"13:00",type:"open",label:"Open swim"},{start:"14:00",end:"16:00",type:"open",label:"Open swim"}],
+      RESRV:[{start:"16:00",end:"19:00",type:"reserved",label:"reserved"}],
+      CLASS:[{start:"16:00",end:"19:00",type:"lessons",label:"swim lessons"}],
+    },
+    activityZero: {
+      OPEN:[{start:"6:00",end:"13:00",type:"open",label:"Open swim"},{start:"14:00",end:"16:00",type:"open",label:"Open swim"}],
+      RESRV:[{start:"16:00",end:"19:00",type:"reserved",label:"reserved"}],
+      CLASS:[{start:"16:00",end:"19:00",type:"lessons",label:"swim lessons"}],
+    },
+  },
+  Thu: {
+    competition: {
+      LAP:[{start:"6:00",end:"7:30",type:"lap",label:"6 lanes"},{start:"7:30",end:"13:00",type:"lap",label:"8 lanes"},{start:"14:00",end:"17:30",type:"lap",label:"4 lanes"}],
+      REC:[{start:"14:00",end:"17:30",type:"rec",label:"Rec · 8 lanes"}],
+      OPEN:[{start:"8:00",end:"13:00",type:"open",label:"Open swim"}],
+    },
+    activityLap: {
+      LAP:[{start:"6:00",end:"9:30",type:"lap",label:"warm lap"}],
+      OPEN:[{start:"11:00",end:"13:00",type:"open",label:"Open swim"},{start:"14:00",end:"16:00",type:"open",label:"Open swim"}],
+      RESRV:[{start:"16:00",end:"19:00",type:"reserved",label:"reserved"}],
+      CLASS:[{start:"10:00",end:"11:00",type:"lessons",label:"water aerobics"},{start:"16:00",end:"19:00",type:"lessons",label:"swim lessons"}],
+    },
+    activityZero: {
+      OPEN:[{start:"6:00",end:"13:00",type:"open",label:"Open swim"},{start:"14:00",end:"16:00",type:"open",label:"Open swim"}],
+      RESRV:[{start:"16:00",end:"19:00",type:"reserved",label:"reserved"}],
+      CLASS:[{start:"16:00",end:"19:00",type:"lessons",label:"swim lessons"}],
+    },
+  },
+  Fri: { // NOTE: same source segments used for both seasons — see flagged assumption in chat
+    competition: {
+      LAP:[{start:"6:00",end:"13:00",type:"lap",label:"8 lanes"},{start:"14:00",end:"17:30",type:"lap",label:"4 lanes"}],
+      REC:[{start:"14:00",end:"17:30",type:"rec",label:"Rec · 8 lanes"}],
+      OPEN:[{start:"6:00",end:"13:00",type:"open",label:"Open swim"}],
+    },
+    activityLap: {
+      LAP:[{start:"6:00",end:"9:30",type:"lap",label:"warm lap"}],
+      OPEN:[{start:"9:30",end:"13:00",type:"open",label:"Open swim"},{start:"14:00",end:"19:00",type:"open",label:"Open swim"}],
+      RESRV:[],
+      CLASS:[],
+    },
+    activityZero: {
+      OPEN:[{start:"6:00",end:"10:30",type:"open",label:"Open swim"},{start:"12:00",end:"13:00",type:"open",label:"Open swim"},{start:"14:00",end:"20:00",type:"open",label:"Open swim"}],
+      RESRV:[],
+      CLASS:[{start:"10:30",end:"12:00",type:"lessons",label:"happy splashers"}],
+    },
+  },
+  Sun: {
+    competition: {
+      LAP:[{start:"7:00",end:"12:00",type:"lap",label:"10 lanes"},{start:"12:00",end:"18:00",type:"lap",label:"4 lanes"}],
+      REC:[{start:"12:00",end:"18:00",type:"rec",label:"Rec · 8 lanes"}],
+      OPEN:[{start:"7:00",end:"12:00",type:"open",label:"Open swim"}],
+    },
+    activityLap: {
+      OPEN:[{start:"7:00",end:"8:00",type:"open",label:"Open swim"},{start:"12:00",end:"18:00",type:"open",label:"Open swim"}],
+      RESRV:[{start:"8:00",end:"12:00",type:"reserved",label:"reserved"}],
+      CLASS:[{start:"8:00",end:"12:00",type:"lessons",label:"swim lessons"}],
+    },
+    activityZero: {
+      OPEN:[{start:"7:00",end:"8:00",type:"open",label:"Open swim"},{start:"12:00",end:"18:00",type:"open",label:"Open swim"}],
+      RESRV:[{start:"8:00",end:"12:00",type:"reserved",label:"reserved"}],
+      CLASS:[{start:"8:00",end:"12:00",type:"lessons",label:"swim lessons"}],
+    },
+  },
+};
+
+const SAT_SUMMER = {
+  competition: {
+    LAP:[{start:"7:00",end:"8:30",type:"lap",label:"10 lanes"},{start:"11:30",end:"20:00",type:"lap",label:"4 lanes"}],
+    REC:[{start:"11:00",end:"20:00",type:"rec",label:"Rec · 8 lanes"}],
+    OPEN:[{start:"7:00",end:"8:30",type:"open",label:"Open swim"}],
+  },
+  activityLap: {
+    OPEN:[{start:"7:00",end:"8:00",type:"open",label:"Open swim"},{start:"12:00",end:"20:00",type:"open",label:"Open swim"}],
+    RESRV:[{start:"8:00",end:"12:00",type:"reserved",label:"reserved"}],
+    CLASS:[{start:"8:00",end:"12:00",type:"lessons",label:"swim lessons"}],
+  },
+  activityZero: {
+    OPEN:[{start:"7:00",end:"8:00",type:"open",label:"Open swim"},{start:"12:00",end:"20:00",type:"open",label:"Open swim"}],
+    RESRV:[{start:"8:00",end:"12:00",type:"reserved",label:"reserved"}],
+    CLASS:[{start:"8:00",end:"12:00",type:"lessons",label:"swim lessons"}],
+  },
+};
+const SAT_FALL = {
+  competition: {
+    LAP:[{start:"7:00",end:"8:30",type:"lap",label:"10 lanes"},{start:"11:30",end:"19:00",type:"lap",label:"4 lanes"}],
+    REC:[{start:"11:30",end:"19:00",type:"rec",label:"Rec · 8 lanes"}],
+    OPEN:[{start:"7:00",end:"8:30",type:"open",label:"Open swim"}],
+  },
+  activityLap: {
+    OPEN:[{start:"7:00",end:"8:00",type:"open",label:"Open swim"},{start:"12:00",end:"19:00",type:"open",label:"Open swim"}],
+    RESRV:[{start:"8:00",end:"12:00",type:"reserved",label:"reserved"}],
+    CLASS:[{start:"8:00",end:"12:00",type:"lessons",label:"swim lessons"}],
+  },
+  activityZero: {
+    OPEN:[{start:"7:00",end:"8:00",type:"open",label:"Open swim"},{start:"12:00",end:"19:00",type:"open",label:"Open swim"}],
+    RESRV:[{start:"8:00",end:"12:00",type:"reserved",label:"reserved"}],
+    CLASS:[{start:"8:00",end:"12:00",type:"lessons",label:"swim lessons"}],
+  },
+};
+
+const HOURS_LABEL = {
+  summer: { Mon:"6a–1p · 2–7p", Tue:"6a–1p · 2–7p", Wed:"6a–1p · 2–7p", Thu:"6a–1p · 2–7p", Fri:"6a–1p · 2–8p", Sat:"7a–8p", Sun:"7a–6p" },
+  fall:   { Mon:"6a–1p · 2–7p", Tue:"6a–1p · 2–7p", Wed:"6a–1p · 2–7p", Thu:"6a–1p · 2–7p", Fri:"6a–1p · 2–7p", Sat:"7a–7p", Sun:"7a–6p" },
+};
+
+const BASELINE = {
+  summer: { Mon:DAY_DATA.Mon, Tue:DAY_DATA.Tue, Wed:DAY_DATA.Wed, Thu:DAY_DATA.Thu, Fri:DAY_DATA.Fri, Sat:SAT_SUMMER, Sun:DAY_DATA.Sun },
+  fall:   { Mon:DAY_DATA.Mon, Tue:DAY_DATA.Tue, Wed:DAY_DATA.Wed, Thu:DAY_DATA.Thu, Fri:DAY_DATA.Fri, Sat:SAT_FALL,   Sun:DAY_DATA.Sun },
+};
+
+/* Lap swim in the competition pool runs LONGER before water polo season
+   starts (Aug 10). From Aug 10 on, the per-weekday LAP hours already in
+   DAY_DATA/SAT_SUMMER/SAT_FALL apply (already shortened to make room for
+   practice). Before Aug 10, this simpler pattern applies instead — REC
+   and OPEN swim are assumed unchanged pre/post Aug 10 (not stated
+   otherwise; worth confirming). */
+const WATERPOLO_SEASON_START = "2026-08-10";
+const PRESEASON_LAP = {
+  MonThu: [{start:"6:00",end:"13:00",type:"lap",label:"8 lanes"},{start:"14:00",end:"19:00",type:"lap",label:"4 lanes"}],
+  Fri:    [{start:"6:00",end:"13:00",type:"lap",label:"8 lanes"},{start:"14:00",end:"20:00",type:"lap",label:"4 lanes"}],
+  Sat:    [{start:"7:00",end:"13:00",type:"lap",label:"8 lanes"},{start:"13:00",end:"20:00",type:"lap",label:"4 lanes"}],
+  Sun:    [{start:"7:00",end:"13:00",type:"lap",label:"8 lanes"},{start:"13:00",end:"18:00",type:"lap",label:"6 lanes"}],
+};
+const PRESEASON_OPEN = {
+  MonThu: [{start:"6:00",end:"13:00",type:"open",label:"Open · 4 lanes"},{start:"17:00",end:"19:00",type:"open",label:"Open · 2 lanes"}],
+  Fri:    [{start:"6:00",end:"13:00",type:"open",label:"Open · 4 lanes"}],
+  Sat:    [{start:"7:00",end:"13:00",type:"open",label:"Open · 8 lanes"}],
+  Sun:    [{start:"7:00",end:"13:00",type:"open",label:"Open · 4 lanes"}],
+};
+const PRESEASON_REC = {
+  MonThu: [{start:"14:00",end:"17:00",type:"rec",label:"Rec · 8 lanes"}],
+  Fri:    [{start:"14:00",end:"20:00",type:"rec",label:"Rec · 8 lanes"}],
+  Sat:    [{start:"13:00",end:"20:00",type:"rec",label:"Rec · 8 lanes"}],
+  Sun:    [{start:"13:00",end:"18:00",type:"rec",label:"Rec · 8 lanes"}],
+};
+function mergeRows(obj, keys, newKey){
+  const combined=[];
+  keys.forEach(k=>{ if(obj[k]) combined.push(...obj[k]); });
+  const out={};
+  Object.keys(obj).forEach(k=>{ if(!keys.includes(k)) out[k]=obj[k]; });
+  out[newKey]=combined;
+  return out;
+}
+function getCompetitionBaseline(dateStr, dayAbbr, season){
+  const base = BASELINE[season][dayAbbr].competition;
+  if(dateStr < WATERPOLO_SEASON_START){
+    const group = dayAbbr==="Sat" ? "Sat" : dayAbbr==="Sun" ? "Sun" : dayAbbr==="Fri" ? "Fri" : "MonThu";
+    return mergeRows({ LAP:PRESEASON_LAP[group], REC:PRESEASON_REC[group], OPEN:PRESEASON_OPEN[group] }, ["OPEN","REC"], "OPEN/REC");
+  }
+  return mergeRows(base, ["OPEN","REC"], "OPEN/REC");
+}
+
+function seasonForDate(dateStr){ return dateStr < "2026-10-01" ? "summer" : "fall"; }
+
+const GAME_DAYS = ["2026-09-03","2026-09-09","2026-09-22","2026-09-24","2026-10-06","2026-10-20"];
+
+/* notable:true = a genuine one-off deviation worth flagging with a dot
+   and a banner (meets). Water polo and swim team practice are regular
+   season-long operations, not deviations, so they default to
+   notable:false — they still render (with the restricted diagonal
+   stripe, same visual language as lessons/reserved swim) and still
+   occupy/clip the pool, they just don't get called out as unusual.
+   All water-polo/team rows share one trackLabel ("PRACTICE") so they
+   consolidate into a single row instead of stacking three. */
+const RECURRING_RULES = [
+  // --- preseason ---
+  { id:"wp-pre1",    pool:"competition", mode:"full", type:"practice", label:"Water Polo · full pool", trackLabel:"PRACTICE",
+    startDate:"2026-07-20", endDate:"2026-07-30", daysOfWeek:[1,3,4], start:"12:00", end:"14:00" },
+  { id:"wp-pre1-tue",pool:"competition", mode:"full", type:"practice", label:"Water Polo · full pool", trackLabel:"PRACTICE",
+    startDate:"2026-07-20", endDate:"2026-07-30", daysOfWeek:[2], start:"13:00", end:"15:00" },
+  { id:"wp-pre2",    pool:"competition", mode:"full", type:"practice", label:"Water Polo · full pool", trackLabel:"PRACTICE",
+    startDate:"2026-08-03", endDate:"2026-08-06", daysOfWeek:[1,2,3,4], start:"12:00", end:"15:00" },
+  // --- regular season, full-pool practice ---
+  { id:"wp-reg-mon", pool:"competition", mode:"full", type:"practice", label:"Water Polo · full pool", trackLabel:"PRACTICE",
+    startDate:"2026-08-10", endDate:"2026-10-31", daysOfWeek:[1], start:"17:00", end:"21:00",
+    excludeDates:["2026-08-24","2026-09-07"] },
+  { id:"wp-reg-tue", pool:"competition", mode:"full", type:"practice", label:"Water Polo · full pool", trackLabel:"PRACTICE",
+    startDate:"2026-08-10", endDate:"2026-10-31", daysOfWeek:[2], start:"18:00", end:"21:00",
+    excludeDates:["2026-09-01","2026-09-15","2026-09-29","2026-10-14","2026-10-27", ...GAME_DAYS] },
+  { id:"wp-reg-wed-am", pool:"competition", mode:"full", type:"practice", label:"Water Polo · full pool", trackLabel:"PRACTICE",
+    startDate:"2026-08-10", endDate:"2026-10-31", daysOfWeek:[3], start:"6:00", end:"8:00",
+    excludeDates:[...GAME_DAYS] },
+  { id:"wp-reg-wed-pm", pool:"competition", mode:"full", type:"practice", label:"Water Polo · full pool", trackLabel:"PRACTICE",
+    startDate:"2026-08-10", endDate:"2026-10-31", daysOfWeek:[3], start:"18:00", end:"20:00",
+    excludeDates:[...GAME_DAYS] },
+  { id:"wp-reg-thu", pool:"competition", mode:"full", type:"practice", label:"Water Polo · full pool", trackLabel:"PRACTICE",
+    startDate:"2026-08-10", endDate:"2026-10-31", daysOfWeek:[4], start:"18:00", end:"21:00",
+    excludeDates:["2026-10-29", ...GAME_DAYS] },
+  { id:"wp-reg-fri", pool:"competition", mode:"full", type:"practice", label:"Water Polo · full pool", trackLabel:"PRACTICE",
+    startDate:"2026-08-10", endDate:"2026-10-31", daysOfWeek:[5], start:"18:00", end:"20:00" },
+  { id:"wp-reg-sat", pool:"competition", mode:"full", type:"practice", label:"Water Polo · full pool", trackLabel:"PRACTICE",
+    startDate:"2026-08-10", endDate:"2026-10-31", daysOfWeek:[6], start:"9:00", end:"11:00",
+    excludeDates:["2026-10-03","2026-10-17"] },
+  // --- overlays: don't take the whole pool ---
+  { id:"wp-6lane", pool:"competition", mode:"overlay", type:"practice", label:"Water Polo · 6 lanes", trackLabel:"PRACTICE",
+    startDate:"2026-08-10", endDate:"2026-10-31", daysOfWeek:[2,4], start:"6:30", end:"7:30",
+    excludeDates:["2026-09-01","2026-09-03","2026-09-15","2026-09-22","2026-09-24","2026-09-29","2026-10-06","2026-10-13","2026-10-20","2026-10-27","2026-10-29"] },
+  { id:"team-practice", pool:"competition", mode:"overlay", type:"practice", label:"Swim Team · 5 lanes", trackLabel:"PRACTICE",
+    startDate:"2026-08-10", endDate:"2026-10-31", daysOfWeek:[2,3,4,5], start:"16:00", end:"18:00" },
+  // --- home meets: genuine special events, pool closed to public ---
+  { id:"game-days", pool:"competition", mode:"full", type:"special", label:"PHS Water Polo Home Game - spectators welcome", shortLabel:"PHS home game", trackLabel:"MEET",
+    dates:[...GAME_DAYS], start:"14:00", end:"20:00", notable:true },
+];
+
+const EXCEPTIONS = [
+  { date:"2026-09-07", label:"Labor Day", pending:true, note:"Holiday hours not yet finalized — check back closer to the date." },
+  { date:"2026-11-11", label:"Veterans Day", pending:true, note:"Holiday hours not yet finalized." },
+  { date:"2026-11-26", label:"Thanksgiving", pending:true, note:"Holiday hours not yet finalized." },
+  { date:"2026-09-19", label:"Cardboard Boat Build & Race", pending:true, note:"Special event — may affect regular pool hours. Details not yet finalized." },
+  { date:"2026-10-24", label:"Pumpkin Dive", pending:true, note:"Special event — may affect regular pool hours. Details not yet finalized." },
+];
+
+/* ============================================================
+   Rendering engine — shouldn't need to touch this to update the
+   schedule itself, only to change how it looks/behaves.
+   ============================================================ */
+
+function toMin(t){ const [h,m]=t.split(":").map(Number); return h*60+m; }
+function pad2(n){ return String(n).padStart(2,"0"); }
+function minToStr(min){ return Math.floor(min/60)+":"+pad2(min%60); }
+function pct(min){ const span=(HOURS.end-HOURS.start)*60; return ((min-HOURS.start*60)/span)*100; }
+function fmtHour(h){ const hh=h%12===0?12:h%12; return hh+(h<12||h===24?"a":"p"); }
+function iso(d){ return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate()); }
+function startOfWeek(d){ const c=new Date(d); c.setHours(0,0,0,0); c.setDate(c.getDate()-c.getDay()); return c; }
+
+function ruleActiveOnDate(rule, dateStr){
+  if(rule.excludeDates && rule.excludeDates.includes(dateStr)) return false;
+  if(rule.dates) return rule.dates.includes(dateStr);
+  if(dateStr < rule.startDate || dateStr > rule.endDate) return false;
+  const dow = new Date(dateStr+"T00:00:00").getDay();
+  return rule.daysOfWeek.includes(dow);
+}
+
+function clipSegsAgainstWindow(segs, ws, we){
+  const out=[];
+  segs.forEach(s=>{
+    const s0=toMin(s.start), s1=toMin(s.end);
+    if(s1<=ws || s0>=we){ out.push(s); return; }
+    if(s0<ws) out.push({...s, end:minToStr(ws)});
+    if(s1>we) out.push({...s, start:minToStr(we)});
+  });
+  return out;
+}
+
+function tracksToList(trackObj){
+  return Object.entries(trackObj).filter(([,segs])=>segs.length>0).map(([label,segs])=>({track:label, segs:segs.map(s=>({...s}))}));
+}
+
+function applyRecurringRules(poolKey, trackObj, dateStr){
+  let tracks = tracksToList(trackObj);
+  const active = RECURRING_RULES.filter(r=>r.pool===poolKey && ruleActiveOnDate(r,dateStr));
+  const fullRules = active.filter(r=>r.mode==="full");
+  const overlayRules = active.filter(r=>r.mode==="overlay");
+
+  fullRules.forEach(r=>{
+    const ws=toMin(r.start), we=toMin(r.end);
+    tracks = tracks.map(t=>({track:t.track, segs:clipSegsAgainstWindow(t.segs, ws, we)}));
+    let track = tracks.find(t=>t.track===r.trackLabel);
+    if(!track){ track={track:r.trackLabel, segs:[]}; tracks.push(track); }
+    track.segs.push({start:r.start, end:r.end, type:r.type, label:r.shortLabel||r.label, _dev:!!r.notable});
+  });
+
+  overlayRules.forEach(r=>{
+    let segs=[{start:r.start, end:r.end, type:r.type, label:r.label, _dev:!!r.notable}];
+    fullRules.forEach(fr=>{ segs = clipSegsAgainstWindow(segs, toMin(fr.start), toMin(fr.end)); });
+    if(segs.length===0) return;
+    let track = tracks.find(t=>t.track===r.trackLabel);
+    if(!track){ track={track:r.trackLabel, segs:[]}; tracks.push(track); }
+    track.segs.push(...segs);
+  });
+
+  return tracks;
+}
+
+function renderLegend(){
+  document.getElementById("legend").innerHTML = Object.entries(ACTIVITY_TYPES).map(([k,v])=>
+    `<div class="chip"><span class="dot${v.restricted?' restricted':''}" style="background:${v.color}"></span>${v.label}</div>`
+  ).join("");
+}
+
+function renderTimescale(container){
+  const ts=document.createElement("div"); ts.className="timescale";
+  for(let h=HOURS.start; h<=HOURS.end; h+=2){
+    const s=document.createElement("span");
+    s.style.left=pct(h*60)+"%";
+    s.textContent=fmtHour(h);
+    ts.appendChild(s);
+  }
+  container.appendChild(ts);
+}
+
+function renderSection(container, title, meta, tracks){
+  const sec=document.createElement("div"); sec.className="section";
+  sec.innerHTML = `<div class="section-title">${title}</div><div class="section-meta">${meta}</div>`;
+  tracks.forEach(t=>{
+    const row=document.createElement("div"); row.className="track";
+    row.innerHTML = `<div class="track-label">${t.track}</div>`;
+    const body=document.createElement("div"); body.className="track-body";
+    t.segs.forEach(s=>{
+      const seg=document.createElement("div");
+      const type = ACTIVITY_TYPES[s.type] ? s.type : "closed";
+      const info = ACTIVITY_TYPES[type];
+      seg.className="seg"+(type==="closed"?" closed":"")+(info.restricted?" restricted":"")+(s._dev?" dev":"");
+      const left=pct(toMin(s.start)), width=pct(toMin(s.end))-left;
+      seg.style.left=left+"%"; seg.style.width=Math.max(width,0)+"%";
+      if(type!=="closed") seg.style.backgroundColor=info.color;
+      seg.textContent = s.label || info.label;
+      seg.title = `${info.label}: ${fmtTime(s.start)}–${fmtTime(s.end)}${s.label?" · "+s.label:""}`;
+      body.appendChild(seg);
+    });
+    row.appendChild(body); sec.appendChild(row);
+  });
+  container.appendChild(sec);
+  renderTimescale(container);
+}
+
+function getScheduleForDate(dateObj){
+  const dateStr=iso(dateObj), dayAbbr=DAY_ORDER[dateObj.getDay()], season=seasonForDate(dateStr);
+  const competitionBaseline = getCompetitionBaseline(dateStr, dayAbbr, season);
+
+  let competition = applyRecurringRules("competition", competitionBaseline, dateStr);
+  let activityZero = tracksToList(BASELINE[season][dayAbbr].activityZero);
+  let activityLap = tracksToList(BASELINE[season][dayAbbr].activityLap);
+
+  const exception = EXCEPTIONS.find(e=>e.date===dateStr && !e.pending);
+  if(exception && exception.overrides){
+    if(exception.overrides.competition) competition = tracksToList(exception.overrides.competition).map(t=>({...t, segs:t.segs.map(s=>({...s,_dev:true}))}));
+    if(exception.overrides.activityZero) activityZero = tracksToList(exception.overrides.activityZero).map(t=>({...t, segs:t.segs.map(s=>({...s,_dev:true}))}));
+    if(exception.overrides.activityLap) activityLap = tracksToList(exception.overrides.activityLap).map(t=>({...t, segs:t.segs.map(s=>({...s,_dev:true}))}));
+  }
+
+  const pending = EXCEPTIONS.find(e=>e.date===dateStr && e.pending);
+  // Only rules explicitly marked notable (real special events, e.g. meets)
+  // trigger the "different from usual" dot/banner — water polo and swim
+  // team practice are regular operations, not deviations.
+  const notableRulesToday = RECURRING_RULES.filter(r=>r.notable && ruleActiveOnDate(r,dateStr) && r.mode==="full");
+  const isConfirmedDeviation = !!exception || notableRulesToday.length>0;
+
+  return {
+    season, hoursLabel: HOURS_LABEL[season][dayAbbr],
+    competition, activityZero, activityLap,
+    isConfirmedDeviation, exception, pending, fullRulesToday: notableRulesToday,
+  };
+}
+
+/* Zero-Depth and Lap Side are two physical spaces, but most of the time
+   they run the same activity at the same time — so rather than two
+   sections, show one "Activity Pool" section and only call out which
+   side when they genuinely differ (same pattern as lane counts in the
+   competition pool: label the exception, not the rule).
+   LAP swim only ever happens on the lap side, so it's never tagged —
+   if you see a lap-swim block, it's implicitly the lap side. */
+function mergeSideTrack(trackName, zeroTracks, lapTracks){
+  if(trackName==="LAP"){
+    const t = lapTracks.find(t=>t.track==="LAP");
+    return t && t.segs.length ? { track:"LAP", segs:t.segs.map(s=>({...s})) } : null;
+  }
+  const zeroSegs = (zeroTracks.find(t=>t.track===trackName)||{segs:[]}).segs;
+  const lapSegs  = (lapTracks.find(t=>t.track===trackName)||{segs:[]}).segs;
+  if(zeroSegs.length===0 && lapSegs.length===0) return null;
+
+  const at=(segs,mid)=>{ const s=segs.find(s=>toMin(s.start)<=mid && toMin(s.end)>mid); return s?{label:s.label,type:s.type,_dev:s._dev}:null; };
+  const points=new Set();
+  [...zeroSegs,...lapSegs].forEach(s=>{ points.add(toMin(s.start)); points.add(toMin(s.end)); });
+  const sorted=[...points].sort((a,b)=>a-b);
+
+  const atoms=[];
+  for(let i=0;i<sorted.length-1;i++){
+    const a=sorted[i], b=sorted[i+1];
+    if(b<=a) continue;
+    const mid=(a+b)/2;
+    const z=at(zeroSegs,mid), l=at(lapSegs,mid);
+    if(!z && !l) continue;
+    atoms.push({start:a,end:b,z,l});
+  }
+  const merged=[];
+  atoms.forEach(a=>{
+    const last=merged[merged.length-1];
+    const same = last && last.end===a.start
+      && JSON.stringify(last.z)===JSON.stringify(a.z) && JSON.stringify(last.l)===JSON.stringify(a.l);
+    if(same) last.end=a.end; else merged.push({...a});
+  });
+
+  const out=[];
+  merged.forEach(m=>{
+    const bothSame = m.z && m.l && m.z.label===m.l.label && m.z.type===m.l.type;
+    if(bothSame){
+      out.push({start:minToStr(m.start), end:minToStr(m.end), type:m.z.type, label:m.z.label+" · both sides", _dev:m.z._dev||m.l._dev});
+    } else {
+      if(m.z) out.push({start:minToStr(m.start), end:minToStr(m.end), type:m.z.type, label:m.z.label+" · zero-depth", _dev:m.z._dev});
+      if(m.l) out.push({start:minToStr(m.start), end:minToStr(m.end), type:m.l.type, label:m.l.label+" · lap side", _dev:m.l._dev});
+    }
+  });
+  return { track:trackName, segs: out };
+}
+function mergeTrackRows(tracks, namesToMerge, newName){
+  const firstIdx = tracks.findIndex(t=>namesToMerge.includes(t.track));
+  if(firstIdx===-1) return tracks;
+  const combinedSegs = tracks.filter(t=>namesToMerge.includes(t.track)).flatMap(t=>t.segs);
+  const out = tracks.filter(t=>!namesToMerge.includes(t.track));
+  out.splice(firstIdx, 0, {track:newName, segs:combinedSegs});
+  return out;
+}
+function mergeActivityPool(activityZero, activityLap){
+  const tracks = ["LAP","OPEN","RESRV","CLASS"]
+    .map(name=>mergeSideTrack(name, activityZero, activityLap))
+    .filter(Boolean);
+  return mergeTrackRows(tracks, ["OPEN","RESRV"], "OPEN/RES");
+}
+
+function renderDayPanel(dateObj){
+  const panel=document.getElementById("dayPanel"); panel.innerHTML="";
+  const d = getScheduleForDate(dateObj);
+
+  if(d.isConfirmedDeviation){
+    const reasons = d.fullRulesToday.map(r=>r.label).filter((v,i,a)=>a.indexOf(v)===i);
+    const parts = [];
+    if(d.exception) parts.push(d.exception.label + " — " + d.exception.note);
+    parts.push(...reasons);
+    const banner=document.createElement("div"); banner.className="banner confirmed";
+    banner.textContent = "⚠ " + parts.join(" ");
+    panel.appendChild(banner);
+  } else if(d.pending){
+    const banner=document.createElement("div"); banner.className="banner pending";
+    banner.textContent = "🔶 " + d.pending.label + " — " + d.pending.note;
+    panel.appendChild(banner);
+  }
+
+  renderSection(panel, "Settlemier Competition Pool", "25yd · 12 lanes", d.competition);
+  renderSection(panel, "Activity Pool", "Zero-Depth &amp; Lap Side · 83–85°F", mergeActivityPool(d.activityZero, d.activityLap));
+
+  const note=document.createElement("p"); note.className="note";
+  note.textContent="Empty space = pool is open, no scheduled activity in that lane group.";
+  panel.appendChild(note);
+}
+
+function getWeekDates(){
+  const base=startOfWeek(new Date());
+  base.setDate(base.getDate()+state.weekOffset*7);
+  return Array.from({length:7},(_,i)=>{ const d=new Date(base); d.setDate(d.getDate()+i); return d; });
+}
+
+function renderWeekNav(weekDates){
+  const first=weekDates[0], last=weekDates[6];
+  const sameMonth=first.getMonth()===last.getMonth();
+  const opts={month:'short',day:'numeric'};
+  const label = sameMonth
+    ? `${first.toLocaleDateString(undefined,{month:'short'})} ${first.getDate()}–${last.getDate()}`
+    : `${first.toLocaleDateString(undefined,opts)} – ${last.toLocaleDateString(undefined,opts)}`;
+  document.getElementById("weekRange").textContent = label+", "+first.getFullYear();
+  const midSeason = seasonForDate(iso(weekDates[3]));
+  document.getElementById("seasonLabel").textContent = midSeason==="summer" ? "Summer hours" : "Fall hours";
+}
+
+function dayStatus(dateStr){
+  const exception=EXCEPTIONS.find(e=>e.date===dateStr && !e.pending);
+  const pending=EXCEPTIONS.find(e=>e.date===dateStr && e.pending);
+  const notableRule=RECURRING_RULES.some(r=>r.notable && r.mode==="full" && ruleActiveOnDate(r,dateStr));
+  if(exception||notableRule) return "confirmed";
+  if(pending) return "pending";
+  return "none";
+}
+
+function fmtTime(t){
+  const [h,m]=t.split(":").map(Number);
+  const hh=h%12===0?12:h%12, suffix=(h<12||h===24)?"a":"p";
+  return m===0 ? `${hh}${suffix}` : `${hh}:${pad2(m)}${suffix}`;
+}
+
+function renderTabs(weekDates){
+  const tabsEl=document.getElementById("tabs"); tabsEl.innerHTML="";
+  const todayStr=iso(new Date());
+  weekDates.forEach(d=>{
+    const dateStr=iso(d), dayAbbr=DAY_ORDER[d.getDay()];
+    const status=dayStatus(dateStr);
+    const tab=document.createElement("div");
+    tab.className="tab"+(dateStr===state.selectedDate?" active":"")+(dateStr===todayStr?" today":"");
+    tab.innerHTML = `<span class="dayabbr">${dayAbbr}</span><span class="daynum">${d.getDate()}</span>`
+      + (status==="confirmed" ? '<span class="flag" title="Schedule differs today"></span>' : "")
+      + (status==="pending" ? '<span class="flag pending" title="Details pending"></span>' : "");
+    tab.onclick=()=>{ state.selectedDate=dateStr; render(); };
+    tabsEl.appendChild(tab);
+  });
+}
+
+function jumpToDate(dateStr){
+  const target=new Date(dateStr+"T00:00:00");
+  const base=startOfWeek(new Date());
+  const targetWeekStart=startOfWeek(target);
+  state.weekOffset=Math.round((targetWeekStart-base)/(7*24*3600*1000));
+  state.selectedDate=dateStr;
+  render();
+  document.getElementById("dayPanel").scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+function renderExceptions(){
+  const wrap=document.getElementById("exceptionsWrap"), list=document.getElementById("exceptionsList");
+  const todayStr=iso(new Date());
+  const upcoming=EXCEPTIONS.filter(e=>e.date>=todayStr).sort((a,b)=>a.date.localeCompare(b.date));
+  if(upcoming.length===0){ wrap.style.display="none"; return; }
+  wrap.style.display="block";
+  document.getElementById("exceptionsChevron").className="exceptions-chevron"+(state.exceptionsOpen?" open":"");
+  list.className="exceptions-body"+(state.exceptionsOpen?" open":"");
+  if(!state.exceptionsOpen) return;
+  list.innerHTML="";
+  upcoming.forEach(ex=>{
+    const dateObj=new Date(ex.date+"T00:00:00");
+    const dateLabel=dateObj.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
+    const card=document.createElement("div");
+    card.className="exception-card"+(ex.pending?" pending":"");
+    card.innerHTML = `
+      <div class="date">${dateLabel}${ex.pending?' · details pending':''}</div>
+      <div class="label">${ex.label}</div>
+      <div class="desc">${ex.note}</div>
+      <button class="jump">View this day →</button>
+    `;
+    card.querySelector(".jump").onclick=()=>jumpToDate(ex.date);
+    list.appendChild(card);
+  });
+}
+
+const state = { weekOffset:0, selectedDate:iso(new Date()), exceptionsOpen:false };
+
+function render(){
+  const weekDates=getWeekDates();
+  const d = getScheduleForDate(new Date(state.selectedDate+"T00:00:00"));
+  document.getElementById("poolSub").textContent = (d.season==="summer"?"Summer":"Fall")+" schedule · "+d.hoursLabel+" today";
+  renderLegend();
+  renderWeekNav(weekDates);
+  renderTabs(weekDates);
+  renderDayPanel(new Date(state.selectedDate+"T00:00:00"));
+  renderExceptions();
+}
+
+document.getElementById("prevWeek").onclick=()=>{ state.weekOffset--; render(); };
+document.getElementById("nextWeek").onclick=()=>{ state.weekOffset++; render(); };
+document.getElementById("exceptionsHeader").onclick=()=>{ state.exceptionsOpen=!state.exceptionsOpen; render(); };
+
+render();
+</script>
+</body>
+</html>
