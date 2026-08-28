@@ -221,17 +221,6 @@
     <span class="swatch2"></span> = different from the usual weekly pattern
   </div>
 
-  <div class="practice-summary">
-    <h2>Water Polo &amp; Swim Team Practice</h2>
-    <ul>
-      <li><b>Water polo, regular season (Aug 10 – Oct 31):</b> closes the competition pool to the public most evenings — Mon 5–9pm, Tue 6–9pm, Wed 6–8am &amp; 6–8pm, Thu 6–9pm, Fri 6–8pm, Sat 9–11am. (Exact days vary — see the striped/outlined blocks on each date, exceptions apply around holidays and meets.)</li>
-      <li><b>Water polo, preseason:</b> Jul 20–30 and Aug 3–6, midday sessions take over the competition pool for 2–3 hours.</li>
-      <li><b>Water polo, early morning (6 lanes, doesn't close the pool):</b> Tue &amp; Thu 6:30–7:30am during the season.</li>
-      <li><b>Piedmont swim team practice (5 lanes, doesn't close the pool):</b> Tue–Fri 4–6pm, skipped automatically on days water polo already has the full pool.</li>
-      <li><b>Home water polo meets:</b> close the competition pool to lap/open/rec 2–8pm on 6 dates this fall — flagged on the calendar above. Spectators welcome via the Magnolia Gate.</li>
-    </ul>
-  </div>
-
   <footer>Schedule loads live from the pool's Google Sheet (MASTER EVENTS). Home meets are detected automatically from Water Polo rows mentioning "Games."</footer>
   </div>
 </div>
@@ -265,7 +254,7 @@ function minToStr(min){ return Math.floor(min/60)+":"+pad2(min%60); }
 function pct(min){ const span=(HOURS.end-HOURS.start)*60; return ((min-HOURS.start*60)/span)*100; }
 function fmtHour(h){ const hh=h%12===0?12:h%12; return hh+(h<12||h===24?"a":"p"); }
 function iso(d){ return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate()); }
-function startOfWeek(d){ const c=new Date(d); c.setHours(0,0,0,0); c.setDate(c.getDate()-c.getDay()); return c; }
+function startOfWeek(d){ const c=new Date(d); c.setHours(0,0,0,0); const offset=(c.getDay()+6)%7; c.setDate(c.getDate()-offset); return c; }
 function fmtTime(t){
   const [h,m]=t.split(":").map(Number);
   const hh=h%12===0?12:h%12, suffix=(h<12||h===24)?"a":"p";
@@ -293,7 +282,8 @@ const TYPE_MAP = {
   "Water Polo":"practice", "Swim Team Practice":"practice",
   "Pool Closed":"closed", "Midday Reset":"closed",
   "Water Aerobics":"lessons", "High-Intensity Interval Training":"lessons",
-  "Happy Splashers":"lessons", "Swim Lessons":"lessons", "Camp":"lessons",
+  "Happy Splashers":"lessons", "Swim Lessons":"lessons", "Swim Lesson":"lessons", "Camp":"lessons",
+  "Swim Lessons/Reserved Swim":"reserved", "Reserved Swim":"reserved",
 };
 const TYPE_TO_TRACK = {lap:"LAP",open:"OPEN",rec:"REC",lessons:"CLASS",reserved:"RESRV",practice:"PRACTICE",special:"MEET",closed:"CLOSED"};
 const DISPLAY_ORDER = ["LAP","OPEN/REC","OPEN","REC","CLASS","RESRV","OPEN/RES","CLOSED","PRACTICE","MEET"];
@@ -352,9 +342,13 @@ function rowToPools(r){
   }
   return [];
 }
+const COMPETITION_POOL_LANES = 12;
 function rowMode(r){
   if(r.activity==="Pool Closed" || r.activity==="Midday Reset") return "full";
-  if(r.activity==="Water Polo") return r.area==="Full Pool" ? "full" : "overlay";
+  if(r.activity==="Water Polo"){
+    const lanes = parseInt(r.laneCount,10);
+    return (r.area==="Full Pool" || lanes>=COMPETITION_POOL_LANES) ? "full" : "overlay";
+  }
   if(r.activity==="Swim Team Practice") return "overlay";
   return "public";
 }
@@ -364,7 +358,7 @@ function rowNotable(r){
 function rowLabel(r, type, mode){
   const lanes = r.laneCount ? `${r.laneCount} lanes` : "";
   if(type==="lap") return lanes || "Lap swim";
-  if(type==="open") return "Open swim";
+  if(type==="open") return lanes ? `Open swim · ${lanes}` : "Open swim";
   if(type==="rec") return lanes ? `Rec · ${lanes}` : "Rec swim";
   if(type==="practice"){
     const base = r.activity==="Water Polo" ? "Water Polo" : "Swim Team";
@@ -373,6 +367,7 @@ function rowLabel(r, type, mode){
     return lanes ? `${base} · ${lanes}` : `${base} · full pool`;
   }
   if(type==="closed") return "closed";
+  if(type==="reserved") return r.publicDetail || "reserved";
   if(type==="lessons") return r.activity==="High-Intensity Interval Training" ? "adult HIIT" : r.activity.toLowerCase();
   return r.activity;
 }
@@ -384,10 +379,24 @@ function applyParsedData(eventRows, settingsRows){
   settingsRows.forEach(r=>{ if(r.Key) SETTINGS[r.Key]=r.Value; });
 }
 
-function fetchCsv(url){
+// Her sheet has title/instruction rows above the real header row (to match
+// her original file's look). Scan for the row that actually looks like
+// headers, rather than assuming row 1 is it.
+function fetchCsv(url, headerFirstCell){
   return new Promise((resolve,reject)=>{
-    Papa.parse(url, { download:true, header:true, skipEmptyLines:true,
-      complete: res => (res.data && res.data.length) ? resolve(res.data) : reject(new Error("empty sheet")),
+    Papa.parse(url, { download:true, header:false, skipEmptyLines:true,
+      complete: res => {
+        const rows = res.data;
+        const headerIdx = rows.findIndex(r=>r[0]===headerFirstCell);
+        if(headerIdx===-1){ reject(new Error(`header row ("${headerFirstCell}") not found`)); return; }
+        const headers = rows[headerIdx];
+        const dataRows = rows.slice(headerIdx+1).map(r=>{
+          const obj={};
+          headers.forEach((h,i)=>{ if(h) obj[h]=r[i]||""; });
+          return obj;
+        });
+        dataRows.length ? resolve(dataRows) : reject(new Error("empty sheet"));
+      },
       error: reject });
   });
 }
@@ -398,7 +407,10 @@ async function loadData(){
     dataSource = "demo";
   } else {
     try{
-      const [events, settings] = await Promise.all([fetchCsv(SHEET_URLS.events), fetchCsv(SHEET_URLS.settings)]);
+      const [events, settings] = await Promise.all([
+        fetchCsv(SHEET_URLS.events, "Event ID"),
+        fetchCsv(SHEET_URLS.settings, "Key"),
+      ]);
       applyParsedData(events, settings);
       dataSource = "live";
     } catch(err){
