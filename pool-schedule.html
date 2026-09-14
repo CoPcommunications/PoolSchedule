@@ -717,6 +717,16 @@ function getWeekDates(){
   return Array.from({length:7},(_,i)=>{ const d=new Date(base); d.setDate(d.getDate()+i); return d; });
 }
 
+// The last week worth navigating to — the one containing PublishedThrough.
+// Beyond that there's nothing real to show, just empty "not yet available"
+// days, so there's no reason to let people scroll into it.
+function getMaxWeekOffset(){
+  if(!SETTINGS.PublishedThrough) return null; // no limit if it isn't set
+  const base = startOfWeek(new Date());
+  const publishedWeekStart = startOfWeek(new Date(SETTINGS.PublishedThrough+"T00:00:00"));
+  return Math.max(0, Math.round((publishedWeekStart-base)/(7*24*3600*1000)));
+}
+
 function renderWeekNav(weekDates){
   const first=weekDates[0], last=weekDates[6];
   const sameMonth=first.getMonth()===last.getMonth();
@@ -725,6 +735,13 @@ function renderWeekNav(weekDates){
     ? `${first.toLocaleDateString(undefined,{month:'short'})} ${first.getDate()}–${last.getDate()}`
     : `${first.toLocaleDateString(undefined,opts)} – ${last.toLocaleDateString(undefined,opts)}`;
   document.getElementById("weekRange").textContent = label+", "+first.getFullYear();
+
+  const maxOffset = getMaxWeekOffset();
+  const prevBtn = document.getElementById("prevWeek"), nextBtn = document.getElementById("nextWeek");
+  const atStart = state.weekOffset<=0;
+  const atEnd = maxOffset!==null && state.weekOffset>=maxOffset;
+  prevBtn.disabled = atStart; prevBtn.style.visibility = atStart ? "hidden" : "visible";
+  nextBtn.disabled = atEnd; nextBtn.style.visibility = atEnd ? "hidden" : "visible";
 }
 
 function dayStatus(dateStr){
@@ -810,6 +827,10 @@ const SOURCE_NOTE = {
 };
 
 function render(){
+  const maxOffset = getMaxWeekOffset();
+  if(state.weekOffset<0) state.weekOffset=0;
+  if(maxOffset!==null && state.weekOffset>maxOffset) state.weekOffset=maxOffset;
+
   const weekDates=getWeekDates();
   const d = getScheduleForDate(new Date(state.selectedDate+"T00:00:00"));
   document.getElementById("poolName").textContent = FACILITY_NAME;
@@ -821,8 +842,11 @@ function render(){
   renderExceptions();
 }
 
-document.getElementById("prevWeek").onclick=()=>{ state.weekOffset--; render(); };
-document.getElementById("nextWeek").onclick=()=>{ state.weekOffset++; render(); };
+document.getElementById("prevWeek").onclick=()=>{ if(state.weekOffset>0){ state.weekOffset--; render(); } };
+document.getElementById("nextWeek").onclick=()=>{
+  const maxOffset = getMaxWeekOffset();
+  if(maxOffset===null || state.weekOffset<maxOffset){ state.weekOffset++; render(); }
+};
 document.getElementById("exceptionsHeader").onclick=()=>{ state.exceptionsOpen=!state.exceptionsOpen; render(); };
 
 // ---- Print-friendly weekly schedule ----
