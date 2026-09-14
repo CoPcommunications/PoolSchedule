@@ -382,9 +382,16 @@ function rowToPools(r){
   if(r.facility === "Poolside Party Area") return [];
   if(r.facility === "Settlemier Pool") return ["Competition"];
   if(r.facility === "Activity Pool"){
-    if(r.area === "Zero-Depth Area") return ["ActivityZero"];
-    if(r.area === "Lap Swim Area") return ["ActivityLap"];
-    if(r.area === "Full Pool") return ["ActivityZero","ActivityLap"];
+    const area = (r.area||"").toLowerCase();
+    const hasZero = area.includes("zero");
+    const hasLap = area.includes("lap");
+    const hasFull = area.includes("full");
+    // Any area value that mentions BOTH sides (or says "full") applies to
+    // both — this covers "Full Pool", "Lap side/Zero side", "Zero/Lap",
+    // etc. without needing exact wording every time.
+    if(hasFull || (hasZero && hasLap)) return ["ActivityZero","ActivityLap"];
+    if(hasZero) return ["ActivityZero"];
+    if(hasLap) return ["ActivityLap"];
   }
   return [];
 }
