@@ -424,7 +424,11 @@ function rowLabel(r, type, mode){
   }
   if(type==="closed") return "closed";
   if(type==="reserved") return lanes ? `Reserved Open Swim · ${lanes}` : "Reserved Open Swim";
-  if(type==="lessons") return r.activity==="High-Intensity Interval Training" ? "adult HIIT" : r.activity.toLowerCase();
+  if(type==="lessons"){
+    if(r.activity==="High-Intensity Interval Training") return "adult HIIT";
+    if(r.activity==="Swim Lessons/Reserved Swim") return "swim lessons";
+    return r.activity.toLowerCase();
+  }
   return r.activity;
 }
 
@@ -496,37 +500,64 @@ function mergeTrackRows(tracks, namesToMerge, newName){
   return out;
 }
 
+// Some activities are written as one combined row representing two real
+// things happening in the same window (e.g. "Swim Lessons/Reserved Swim").
+// A single row can only carry one Type through the normal TYPE_MAP, so
+// these need to expand into multiple typed entries instead of picking one
+// and silently dropping the other.
+// Fallback for when "Swim Lessons/Reserved Swim" arrives as ONE combined
+// row instead of two: Lessons keeps the row's actual entered time (that
+// part is accurate as written). Reserved Swim's real sub-window isn't
+// recoverable from the combined row, so it narrows to the known default
+// for that pattern — weekend mornings vs. weekday evenings — rather than
+// showing (inaccurately) as the full lessons block. If she enters it as
+// two separate rows with real times, those real times are used instead
+// and this fallback never applies.
+function reservedSwimFallbackWindow(r){
+  const dow = new Date(r.date+"T00:00:00").getDay(); // 0=Sun ... 6=Sat
+  const isWeekend = dow===0 || dow===6;
+  return isWeekend ? {start:"9:00", end:"11:30"} : {start:"16:30", end:"19:00"};
+}
+function getRowTypeSegments(r){
+  if(r.activity === "Swim Lessons/Reserved Swim"){
+    const reservedWindow = reservedSwimFallbackWindow(r);
+    return [
+      { type:"lessons", start:r.start, end:r.end },
+      { type:"reserved", start:reservedWindow.start, end:reservedWindow.end },
+    ];
+  }
+  const type = TYPE_MAP[r.activity];
+  if(!type){ unmappedActivities.add(r.activity); return [{ type:"closed", start:r.start, end:r.end }]; }
+  return [{ type, start:r.start, end:r.end }];
+}
+
 function buildPoolTracks(pool, dateStr){
   const rows = EVENT_ROWS.filter(r=>r.date===dateStr && rowToPools(r).includes(pool));
-  const withType = rows.map(r=>{
-    const type = TYPE_MAP[r.activity];
-    if(!type){ unmappedActivities.add(r.activity); }
-    return { r, type: type||"closed", mode: rowMode(r) };
-  });
+  const withType = rows.flatMap(r=>getRowTypeSegments(r).map(seg=>({ r, type:seg.type, start:seg.start, end:seg.end, mode: rowMode(r) })));
 
   const publicRows = withType.filter(x=>x.mode==="public");
   const fullRows = withType.filter(x=>x.mode==="full");
   const overlayRows = withType.filter(x=>x.mode==="overlay");
 
   const tracks = {};
-  publicRows.forEach(({r,type})=>{
+  publicRows.forEach(({r,type,start,end})=>{
     const t = TYPE_TO_TRACK[type]||type.toUpperCase();
     if(!tracks[t]) tracks[t]=[];
-    tracks[t].push({start:r.start, end:r.end, type, label:rowLabel(r,type,"public")});
+    tracks[t].push({start, end, type, label:rowLabel(r,type,"public")});
   });
   let trackList = Object.entries(tracks).map(([k,v])=>({track:k, segs:v}));
 
-  fullRows.forEach(({r,type})=>{
-    const ws=toMin(r.start), we=toMin(r.end);
+  fullRows.forEach(({r,type,start,end})=>{
+    const ws=toMin(start), we=toMin(end);
     trackList = trackList.map(t=>({track:t.track, segs:clipSegs(t.segs, ws, we)}));
     const trackName = TYPE_TO_TRACK[type]||"CLOSED";
     let tr = trackList.find(t=>t.track===trackName);
     if(!tr){ tr={track:trackName, segs:[]}; trackList.push(tr); }
-    tr.segs.push({start:r.start, end:r.end, type, label:rowLabel(r,type,"full"), _dev:rowNotable(r)});
+    tr.segs.push({start, end, type, label:rowLabel(r,type,"full"), _dev:rowNotable(r)});
   });
-  overlayRows.forEach(({r,type})=>{
-    let segs=[{start:r.start, end:r.end, type, label:rowLabel(r,type,"overlay"), _dev:rowNotable(r)}];
-    fullRows.forEach(({r:fr})=>{ segs = clipSegs(segs, toMin(fr.start), toMin(fr.end)); });
+  overlayRows.forEach(({r,type,start,end})=>{
+    let segs=[{start, end, type, label:rowLabel(r,type,"overlay"), _dev:rowNotable(r)}];
+    fullRows.forEach(({start:fs,end:fe})=>{ segs = clipSegs(segs, toMin(fs), toMin(fe)); });
     if(segs.length===0) return;
     const trackName = TYPE_TO_TRACK[type]||"PRACTICE";
     let tr = trackList.find(t=>t.track===trackName);
