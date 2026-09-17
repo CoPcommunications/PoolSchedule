@@ -422,7 +422,13 @@ function rowLabel(r, type, mode){
     if(mode==="full") return `${base} · full pool`;
     return lanes ? `${base} · ${lanes}` : `${base} · full pool`;
   }
-  if(type==="special") return r.alertMessage || r.publicDetail || r.activity || "Special event";
+  // Special/notable segments: keep the on-grid text short regardless of how
+  // long her Alert Message is — that full text belongs in the alert banner
+  // only (see rowAlertText), not repeated inside the small chart block.
+  if(type==="special"){
+    if(r.activity==="Water Polo") return "Water Polo · Game";
+    return r.activity || "Special event";
+  }
   if(type==="closed") return "closed";
   if(type==="reserved") return lanes ? `Reserved Open Swim · ${lanes}` : "Reserved Open Swim";
   if(type==="lessons"){
@@ -431,6 +437,13 @@ function rowLabel(r, type, mode){
     return r.activity.toLowerCase();
   }
   return r.activity;
+}
+
+// The full public-facing sentence for the alert banner and the Upcoming
+// Special Events card — deliberately separate from rowLabel (the grid),
+// which always stays short no matter how long this text is.
+function rowAlertText(r){
+  return r.alertMessage || r.publicDetail || r.activity || "Special event";
 }
 
 function applyParsedData(eventRows, settingsRows){
@@ -563,10 +576,10 @@ function buildPoolTracks(pool, dateStr){
     const trackName = track || TYPE_TO_TRACK[type] || "CLOSED";
     let tr = trackList.find(t=>t.track===trackName);
     if(!tr){ tr={track:trackName, segs:[]}; trackList.push(tr); }
-    tr.segs.push({start, end, type, label:rowLabel(r,type,"full"), _dev:rowNotable(r)});
+    tr.segs.push({start, end, type, label:rowLabel(r,type,"full"), _dev:rowNotable(r), alertText: rowNotable(r)?rowAlertText(r):undefined});
   });
   overlayRows.forEach(({r,type,start,end,track})=>{
-    let segs=[{start, end, type, label:rowLabel(r,type,"overlay"), _dev:rowNotable(r)}];
+    let segs=[{start, end, type, label:rowLabel(r,type,"overlay"), _dev:rowNotable(r), alertText: rowNotable(r)?rowAlertText(r):undefined}];
     fullRows.forEach(({start:fs,end:fe})=>{ segs = clipSegs(segs, toMin(fs), toMin(fe)); });
     if(segs.length===0) return;
     const trackName = track || TYPE_TO_TRACK[type] || "PRACTICE";
@@ -659,10 +672,12 @@ function getScheduleForDate(dateObj){
   const activityZero = buildPoolTracks("ActivityZero", dateStr);
   const activityLap = buildPoolTracks("ActivityLap", dateStr);
 
-  // Notable = a genuine one-off event (currently: home Water Polo meets,
-  // detected from her own "Games" wording) — routine practice never is.
+  // Notable = a genuine one-off event, any pool, any activity — the
+  // Notable column drives this, not just Competition Pool water polo.
   const notableToday = [];
-  competition.forEach(t=>t.segs.forEach(s=>{ if(s._dev) notableToday.push(s.label); }));
+  [competition, activityZero, activityLap].forEach(tracks=>{
+    tracks.forEach(t=>t.segs.forEach(s=>{ if(s._dev && s.alertText) notableToday.push(s.alertText); }));
+  });
   const isConfirmedDeviation = notableToday.length>0;
 
   // Holiday = any row that day whose Public Detail mentions "Holiday" —
