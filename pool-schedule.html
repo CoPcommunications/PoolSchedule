@@ -252,7 +252,7 @@
 
   <div class="exceptions no-print" id="exceptionsWrap" style="display:none;">
     <div class="exceptions-header" id="exceptionsHeader">
-      <h2>Upcoming Meets</h2>
+      <h2>Upcoming Special Events</h2>
       <span class="exceptions-chevron" id="exceptionsChevron">▸</span>
     </div>
     <div id="exceptionsList" class="exceptions-body"></div>
@@ -332,7 +332,7 @@ const TYPE_MAP = {
 };
 const TYPE_TO_TRACK = {lap:"LAP",open:"OPEN",rec:"REC",lessons:"CLASS",reserved:"RESRV",practice:"PRACTICE",special:"MEET",closed:"CLOSED"};
 const DISPLAY_ORDER = ["LAP","OPEN/REC","OPEN","REC","CLASS","RESRV","OPEN/RES","PRACTICE","MEET","CLOSED"];
-const TRACK_DISPLAY_LABEL = { CLOSED:"Midday reset" };
+const TRACK_DISPLAY_LABEL = { CLOSED:"Midday reset", PRACTICE:"Team" };
 
 let EVENT_ROWS = [];   // parsed, normalized rows
 let SETTINGS = {};
@@ -363,6 +363,7 @@ function parseSheetTime(raw){
   return raw;
 }
 
+function isTrue(v){ return String(v||"").trim().toUpperCase()==="TRUE"; }
 function parseEventRow(row){
   return {
     date: parseSheetDate(row["Date"]),
@@ -375,6 +376,7 @@ function parseEventRow(row){
     laneNumbers: (row["Lane Numbers"]||"").trim(),
     publicDetail: (row["Public Detail"]||"").trim(),
     status: (row["Status"]||"").trim(),
+    notable: isTrue(row["Notable"]),
   };
 }
 
@@ -397,6 +399,7 @@ function rowToPools(r){
 }
 const COMPETITION_POOL_LANES = 12;
 function rowMode(r){
+  if(rowNotable(r)) return "full";
   if(r.activity==="Pool Closed" || r.activity==="Midday Reset") return "full";
   if(r.activity==="Water Polo"){
     const lanes = parseInt(r.laneCount,10);
@@ -406,7 +409,7 @@ function rowMode(r){
   return "public";
 }
 function rowNotable(r){
-  return /game/i.test(r.publicDetail) && r.activity==="Water Polo";
+  return r.notable === true;
 }
 function rowIsHoliday(r){
   return /holiday/i.test(r.publicDetail);
@@ -418,10 +421,10 @@ function rowLabel(r, type, mode){
   if(type==="rec") return lanes ? `Rec · ${lanes}` : "Rec swim";
   if(type==="practice"){
     const base = r.activity==="Water Polo" ? "Water Polo" : "Swim Team";
-    if(rowNotable(r)) return "PHS Water Polo Home Game - spectators welcome";
     if(mode==="full") return `${base} · full pool`;
     return lanes ? `${base} · ${lanes}` : `${base} · full pool`;
   }
+  if(type==="special") return r.publicDetail || r.activity || "Special event";
   if(type==="closed") return "closed";
   if(type==="reserved") return lanes ? `Reserved Open Swim · ${lanes}` : "Reserved Open Swim";
   if(type==="lessons"){
@@ -519,6 +522,9 @@ function reservedSwimFallbackWindow(r){
   return isWeekend ? {start:"9:00", end:"11:30"} : {start:"16:30", end:"19:00"};
 }
 function getRowTypeSegments(r){
+  if(rowNotable(r)){
+    return [{ type:"special", start:r.start, end:r.end }];
+  }
   if(r.activity === "Swim Lessons/Reserved Swim"){
     const reservedWindow = reservedSwimFallbackWindow(r);
     return [
@@ -616,10 +622,15 @@ function renderSection(container, title, meta, tracks){
   renderTimescale(container);
 }
 
+// "Today's hours" should reflect when the public can actually show up and
+// swim — not team practice (often runs before/after public hours) and not
+// special-event closures. Only these types count toward the boundary.
+const PUBLIC_HOURS_TYPES = new Set(["lap","open","rec","reserved","lessons"]);
 function computeHoursLabel(dateStr){
   let minStart=Infinity, maxEnd=-Infinity;
   ["Competition","ActivityZero","ActivityLap"].forEach(pool=>{
     buildPoolTracks(pool, dateStr).forEach(t=>t.segs.forEach(s=>{
+      if(!PUBLIC_HOURS_TYPES.has(s.type)) return;
       minStart=Math.min(minStart, toMin(s.start));
       maxEnd=Math.max(maxEnd, toMin(s.end));
     }));
@@ -714,7 +725,7 @@ function mergeSideTrack(trackName, zeroTracks, lapTracks){
   return { track:trackName, segs: out };
 }
 function mergeActivityPool(activityZero, activityLap){
-  const tracks = ["LAP","OPEN","RESRV","CLASS","CLOSED"]
+  const tracks = ["LAP","OPEN","RESRV","CLASS","CLOSED","MEET"]
     .map(name=>mergeSideTrack(name, activityZero, activityLap))
     .filter(Boolean);
   return mergeTrackRows(tracks, ["OPEN","RESRV"], "OPEN/RES");
@@ -785,7 +796,7 @@ function renderWeekNav(weekDates){
 function dayStatus(dateStr){
   if(!isPublished(dateStr)) return "unpublished";
   const rowsToday = EVENT_ROWS.filter(r=>r.date===dateStr);
-  if(rowsToday.some(r=>rowToPools(r).includes("Competition") && rowNotable(r))) return "confirmed";
+  if(rowsToday.some(rowNotable)) return "confirmed";
   if(rowsToday.some(rowIsHoliday)) return "holiday";
   return "none";
 }
@@ -799,7 +810,7 @@ function renderTabs(weekDates){
     const tab=document.createElement("div");
     tab.className="tab"+(dateStr===state.selectedDate?" active":"")+(dateStr===todayStr?" today":"")+(status==="unpublished"?" unpublished":"");
     tab.innerHTML = `<span class="dayabbr">${dayAbbr}</span><span class="daynum">${d.getDate()}</span>`
-      + (status==="confirmed" ? '<span class="flag" title="Meet today"></span>' : "")
+      + (status==="confirmed" ? '<span class="flag" title="Special event today"></span>' : "")
       + (status==="holiday" ? '<span class="flag pending" title="Holiday hours"></span>' : "")
       + (status==="unpublished" ? '<span class="flag pending" title="Not yet published"></span>' : "");
     tab.onclick=()=>{ state.selectedDate=dateStr; render(); };
@@ -817,15 +828,14 @@ function jumpToDate(dateStr){
   document.getElementById("dayPanel").scrollIntoView({behavior:"smooth", block:"start"});
 }
 
-// "Upcoming Meets" is derived live from her own data — any Competition Pool
-// row where rowNotable() is true (currently: Water Polo rows whose Public
-// Detail mentions "Games") — not a separately maintained list.
-function getUpcomingMeets(){
+// "Upcoming Special Events" is derived live from her own data — any row
+// with the Notable column checked, in any pool, for any activity.
+function getUpcomingEvents(){
   const todayStr=iso(new Date());
   const seen=new Map();
   EVENT_ROWS.forEach(r=>{
     if(r.date < todayStr || !isPublished(r.date)) return;
-    if(!rowToPools(r).includes("Competition") || !rowNotable(r)) return;
+    if(!rowNotable(r)) return;
     if(!seen.has(r.date)) seen.set(r.date, r);
   });
   return [...seen.values()].sort((a,b)=>a.date.localeCompare(b.date));
@@ -833,7 +843,7 @@ function getUpcomingMeets(){
 
 function renderExceptions(){
   const wrap=document.getElementById("exceptionsWrap"), list=document.getElementById("exceptionsList");
-  const upcoming = getUpcomingMeets();
+  const upcoming = getUpcomingEvents();
   if(upcoming.length===0){ wrap.style.display="none"; return; }
   wrap.style.display="block";
   document.getElementById("exceptionsChevron").className="exceptions-chevron"+(state.exceptionsOpen?" open":"");
@@ -847,8 +857,8 @@ function renderExceptions(){
     card.className="exception-card";
     card.innerHTML = `
       <div class="date">${dateLabel}</div>
-      <div class="label">PHS Water Polo Home Game</div>
-      <div class="desc">Competition pool closed to lap/open/rec swim ${fmtTime(r.start)}–${fmtTime(r.end)}. Spectators welcome.</div>
+      <div class="label">${r.activity||"Special event"}</div>
+      <div class="desc">${r.publicDetail || ""} ${fmtTime(r.start)}–${fmtTime(r.end)}</div>
       <button class="jump">View this day →</button>
     `;
     card.querySelector(".jump").onclick=()=>jumpToDate(r.date);
