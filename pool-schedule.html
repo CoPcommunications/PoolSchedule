@@ -523,6 +523,12 @@ function reservedSwimFallbackWindow(r){
   return isWeekend ? {start:"9:00", end:"11:30"} : {start:"16:30", end:"19:00"};
 }
 function getRowTypeSegments(r){
+  if(r.activity === "Water Polo" && rowNotable(r)){
+    // Still pink (type=special) and still flagged/alerted — just consolidated
+    // onto the same row as routine Water Polo/Team practice instead of a
+    // separate row, since it's the same physical activity to a viewer.
+    return [{ type:"special", start:r.start, end:r.end, track:"PRACTICE" }];
+  }
   if(rowNotable(r)){
     return [{ type:"special", start:r.start, end:r.end }];
   }
@@ -540,33 +546,33 @@ function getRowTypeSegments(r){
 
 function buildPoolTracks(pool, dateStr){
   const rows = EVENT_ROWS.filter(r=>r.date===dateStr && rowToPools(r).includes(pool));
-  const withType = rows.flatMap(r=>getRowTypeSegments(r).map(seg=>({ r, type:seg.type, start:seg.start, end:seg.end, mode: rowMode(r) })));
+  const withType = rows.flatMap(r=>getRowTypeSegments(r).map(seg=>({ r, type:seg.type, start:seg.start, end:seg.end, track:seg.track, mode: rowMode(r) })));
 
   const publicRows = withType.filter(x=>x.mode==="public");
   const fullRows = withType.filter(x=>x.mode==="full");
   const overlayRows = withType.filter(x=>x.mode==="overlay");
 
   const tracks = {};
-  publicRows.forEach(({r,type,start,end})=>{
-    const t = TYPE_TO_TRACK[type]||type.toUpperCase();
+  publicRows.forEach(({r,type,start,end,track})=>{
+    const t = track || TYPE_TO_TRACK[type] || type.toUpperCase();
     if(!tracks[t]) tracks[t]=[];
     tracks[t].push({start, end, type, label:rowLabel(r,type,"public")});
   });
   let trackList = Object.entries(tracks).map(([k,v])=>({track:k, segs:v}));
 
-  fullRows.forEach(({r,type,start,end})=>{
+  fullRows.forEach(({r,type,start,end,track})=>{
     const ws=toMin(start), we=toMin(end);
     trackList = trackList.map(t=>({track:t.track, segs:clipSegs(t.segs, ws, we)}));
-    const trackName = TYPE_TO_TRACK[type]||"CLOSED";
+    const trackName = track || TYPE_TO_TRACK[type] || "CLOSED";
     let tr = trackList.find(t=>t.track===trackName);
     if(!tr){ tr={track:trackName, segs:[]}; trackList.push(tr); }
     tr.segs.push({start, end, type, label:rowLabel(r,type,"full"), _dev:rowNotable(r)});
   });
-  overlayRows.forEach(({r,type,start,end})=>{
+  overlayRows.forEach(({r,type,start,end,track})=>{
     let segs=[{start, end, type, label:rowLabel(r,type,"overlay"), _dev:rowNotable(r)}];
     fullRows.forEach(({start:fs,end:fe})=>{ segs = clipSegs(segs, toMin(fs), toMin(fe)); });
     if(segs.length===0) return;
-    const trackName = TYPE_TO_TRACK[type]||"PRACTICE";
+    const trackName = track || TYPE_TO_TRACK[type] || "PRACTICE";
     let tr = trackList.find(t=>t.track===trackName);
     if(!tr){ tr={track:trackName, segs:[]}; trackList.push(tr); }
     tr.segs.push(...segs);
@@ -601,6 +607,7 @@ function renderTimescale(container){
 function renderSection(container, title, meta, tracks){
   const sec=document.createElement("div"); sec.className="section";
   sec.innerHTML = `<div class="section-title">${title}</div><div class="section-meta">${meta}</div>`;
+  renderTimescale(sec);
   tracks.forEach(t=>{
     const row=document.createElement("div"); row.className="track";
     row.innerHTML = `<div class="track-label">${TRACK_DISPLAY_LABEL[t.track]||t.track}</div>`;
@@ -620,7 +627,6 @@ function renderSection(container, title, meta, tracks){
     row.appendChild(body); sec.appendChild(row);
   });
   container.appendChild(sec);
-  renderTimescale(container);
 }
 
 // "Today's hours" should reflect when the public can actually show up and
@@ -929,13 +935,13 @@ function timescaleHTML(){
   return out+'</div>';
 }
 function timelineHTML(tracks){
-  let html = `<div class="section">`;
+  let html = `<div class="section">` + timescaleHTML();
   tracks.forEach(t=>{
     html += `<div class="track"><div class="track-label">${TRACK_DISPLAY_LABEL[t.track]||t.track}</div><div class="track-body">`;
     t.segs.forEach(s=>{ html += segHTML(s); });
     html += `</div></div>`;
   });
-  html += timescaleHTML() + `</div>`;
+  html += `</div>`;
   return html;
 }
 
