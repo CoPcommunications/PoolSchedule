@@ -376,7 +376,8 @@ function parseEventRow(row){
     laneNumbers: (row["Lane Numbers"]||"").trim(),
     publicDetail: (row["Public Detail"]||"").trim(),
     status: (row["Status"]||"").trim(),
-    notable: isTrue(row["Notable"]),
+    notable: isTrue(row["Notable"] ?? row["Noteable"]),
+    alertMessage: (row["Alert Message"]||"").trim(),
   };
 }
 
@@ -424,7 +425,7 @@ function rowLabel(r, type, mode){
     if(mode==="full") return `${base} · full pool`;
     return lanes ? `${base} · ${lanes}` : `${base} · full pool`;
   }
-  if(type==="special") return r.publicDetail || r.activity || "Special event";
+  if(type==="special") return r.alertMessage || r.publicDetail || r.activity || "Special event";
   if(type==="closed") return "closed";
   if(type==="reserved") return lanes ? `Reserved Open Swim · ${lanes}` : "Reserved Open Swim";
   if(type==="lessons"){
@@ -853,12 +854,13 @@ function renderExceptions(){
   upcoming.forEach(r=>{
     const dateObj=new Date(r.date+"T00:00:00");
     const dateLabel=dateObj.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
+    const message = r.alertMessage || r.publicDetail || r.activity || "Special event";
     const card=document.createElement("div");
     card.className="exception-card";
     card.innerHTML = `
       <div class="date">${dateLabel}</div>
-      <div class="label">${r.activity||"Special event"}</div>
-      <div class="desc">${r.publicDetail || ""} ${fmtTime(r.start)}–${fmtTime(r.end)}</div>
+      <div class="label">${message}</div>
+      <div class="desc">${fmtTime(r.start)}–${fmtTime(r.end)}</div>
       <button class="jump">View this day →</button>
     `;
     card.querySelector(".jump").onclick=()=>jumpToDate(r.date);
@@ -880,9 +882,9 @@ function render(){
   if(maxOffset!==null && state.weekOffset>maxOffset) state.weekOffset=maxOffset;
 
   const weekDates=getWeekDates();
-  const d = getScheduleForDate(new Date(state.selectedDate+"T00:00:00"));
+  const todayInfo = getScheduleForDate(new Date());
   document.getElementById("poolName").textContent = FACILITY_NAME;
-  document.getElementById("poolSub").textContent = (d.hoursLabel ? "Today's hours: "+d.hoursLabel : "") + (SOURCE_NOTE[dataSource]||"");
+  document.getElementById("poolSub").textContent = (todayInfo.hoursLabel ? "Today's hours: "+todayInfo.hoursLabel : "") + (SOURCE_NOTE[dataSource]||"");
   renderLegend();
   renderWeekNav(weekDates);
   renderTabs(weekDates);
