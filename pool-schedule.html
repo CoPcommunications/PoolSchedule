@@ -262,11 +262,8 @@
   <div class="legend no-print" id="legend"></div>
   <div class="legend-note no-print">
     <span class="swatch"></span> = requires signup / restricted to a specific group
-    &nbsp;&nbsp;
-    <span class="swatch2"></span> = different from the usual weekly pattern
   </div>
 
-  <footer class="no-print">Schedule loads live from the pool's Google Sheet (MASTER EVENTS). Home meets are detected automatically from Water Polo rows mentioning "Games."</footer>
   </div>
 </div>
 
@@ -761,10 +758,6 @@ function renderDayPanel(dateObj){
 
   renderSection(panel, COMPETITION_POOL_NAME, COMPETITION_POOL_META, d.competition);
   renderSection(panel, "Activity Pool", ACTIVITY_POOL_META, mergeActivityPool(d.activityZero, d.activityLap));
-
-  const note=document.createElement("p"); note.className="note";
-  note.textContent="Empty space = pool is open, no scheduled activity in that lane group.";
-  panel.appendChild(note);
 }
 
 function getWeekDates(){
